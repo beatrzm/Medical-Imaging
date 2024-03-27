@@ -1,0 +1,84 @@
+M_off_echo2 = np.zeros((3,200,121))
+for i in range(len(off_r)):
+    #rotation_matrix_off = np.array([[1,0,0],
+                            #[0,np.cos(off_r[i]*step),np.sin(off_r[i]*step)],
+                            #[0,-np.sin(off_r[i]*step),np.cos(off_r[i]*step)]])
+    rotation_matrix_off= np.array([[np.cos(off_r[i]*step), np.sin(off_r[i]*step),0],
+                            [-np.sin(off_r[i]*step), np.cos(off_r[i]*step),0],
+                            [0,0, 1]])
+    M_off_echo2[:,0,i] = np.array([0,1,0]) # primeira entrada: magnitude, segunda entrada: tempo, terceira entrada: freq
+    for j in range(1,int(TR/step),1):
+        if j == (TE/2)/step or j == (TE*(3/2))/step or j == (TE*(5/2))/step or j == (TE*(7/2))/step or j == (TE*(9/2))/step or j == (TE*(11/2))/step or j == (TE*(13/2))/step or j == (TE*(15/2))/step:
+            M_off_echo2[:,j,i:i+1] = np.dot(relax_matrix, np.array([M_off_echo[:,j-1,i]]).transpose()) + np.array([[0,0,(1-np.exp(-step/T1))]]).transpose()
+            M_off_echo2[:,j,i:i+1] = np.dot(rotation_matrix_off,np.array([M_off_echo[:,j,i]]).transpose())
+            #M_off_echo[:,j,i:i+1] = np.dot(refocus_matrix,np.array([M_off_echo[:,j,i]]).transpose())
+        else:
+            M_off_echo2[:,j,i:i+1] = np.dot(relax_matrix, np.array([M_off_echo[:,j-1,i]]).transpose()) + np.array([[0,0,(1-np.exp(-step/T1))]]).transpose()
+            M_off_echo2[:,j,i:i+1] = np.dot(rotation_matrix_off,np.array([M_off_echo[:,j,i]]).transpose())
+
+
+# get averages
+
+M_avg_echo2 = np.zeros((3,200))
+
+M_avg_echo2[0,:] = np.sum(M_off_echo2[0,:,:],axis=1)/len(off_r)
+M_avg_echo2[1,:] = np.sum(M_off_echo2[1,:,:],axis=1)/len(off_r)
+M_avg_echo2[2,:] = np.sum(M_off_echo2[2,:,:],axis=1)/len(off_r)
+
+
+# plot each average
+
+plt.figure()
+plt.plot(TR_vec[0], M_avg_echo2[0,:], label='Mx')
+plt.plot(TR_vec[0], M_avg_echo2[1,:], label='My')
+plt.plot(TR_vec[0], M_avg_echo2[2,:], label='Mz')
+plt.plot(TR_vec[0],np.exp(-TR_vec[0]/T2), label='T2 decay', linestyle='dashed', color = "black")
+#plt.plot(TR_vec[0],np.exp(-TR_vec[0]/T2), label='T2 decay', linestyle='dashed', color = "black")
+plt.legend(loc='upper right')
+plt.xlabel("Time (s)")
+plt.ylabel("Magnetization")
+
+plt.show()
+
+# transverse magnetization 
+
+M_xy_avg_echo2 = M_avg_echo2[0,:] + 1j*M_avg_echo2[1,:]
+
+
+
+# plot angle and magnitude in function of time
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 5))
+ax1.plot(TR_vec[0], np.abs(M_xy_avg_echo2), label='|Mxy|')
+ax1.set_ylabel("Magnetization (M)")
+ax2.plot(TR_vec[0], np.angle(M_xy_avg_echo2)*(180/np.pi), label='angle(Mxy)')
+ax2.set_ylabel("Magnetization angle (deg)")
+ax2.set_xlabel("Time (s)")
+plt.show()
+
+
+M_nTE2 = np.zeros(8)
+
+for i in range(8):
+    #print(int(((TE*i)/step)))
+    #print(M_avg_echo[1,int(((TE*i)/step))])
+    M_nTE2[i] = M_avg_echo2[1,int(((TE*i)/step))]
+
+print(M_nTE2)
+
+#M_nTE_test = [M_avg_echo[1,20],M_avg_echo[2,20],M_avg_echo[2,40],M_avg_echo[2,60],M_avg_echo[2,80],M_avg_echo[2,100],M_avg_echo[2,120],M_avg_echo[2,140]]
+#print(M_nTE_test)
+
+# fit exponential to M_nTE
+
+x = np.arange(10,90,10)*10**-3
+#print(x)
+p = np.polyfit(x, np.log(abs(M_nTE2)), 1)
+#print(p)
+print("T2 (no refocus)= ", -1/p[0], "s") # supostamente seria so isto mas n esta a dar nada de jeito
+real_T2_norefocus = -1/p[0]
+
+
+# difference between T2 with and without refocus
+
+print("T2 difference = ", abs(real_T2_norefocus - T2), "s")
